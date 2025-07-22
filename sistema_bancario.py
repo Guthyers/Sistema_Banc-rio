@@ -1,3 +1,4 @@
+import textwrap
 from abc import ABC, abstractclassmethod, abstractproperty
 from datetime import datetime
 
@@ -71,14 +72,173 @@ class Conta:
             print("\n @@@ Sua operação falhou, o valor informado é invalido. @@@")
         
         return True
-#parei aqui
+
 class ContaCorrente(Conta):
-    pass
+    def __init__(self, numero, cliente, limite=500, limite_saques=3):
+        super().__init__(numero, cliente)
+        self.limite = limite
+        self.limite_saques = limite_saques
+    
+    def sacar(self, valor):
+        numero_saques = len(
+            [transacao for transacao in self.historico.transacoes if transacao["tipo"] == Saque.__name__]
+        )
+
+        excedeu_limite = valor > self.limite
+        excedeu_saques = numero_saques >= self.limite_saques
+
+        if excedeu_limite:
+            print("\n @@@ operação falhou! O valor do saque excedeu o limite. @@@")
+        
+        elif excedeu_saques:
+            print("\n @@@ Operação falhou! Número máximo de saques excedido. @@@")
+
+        else:
+            return super().sacar(valor)
+        
+        return False
+    def __str__(self):
+        return f"""\
+            Agência:\t{self.agencia}
+            C/c \t\t{self.numero}
+            Titular:\t{self.cliente.nome}
+        """
+    
 class Historico:
-    pass
+    def __init__(self):
+        self._transacoes = []
+
+    @property
+    def transacoes(self):
+        return self._transacoes
+    
+    def adicionar_transacao(self, transacao):
+        self._transacoes.append(
+            { 
+                "tipo": transacao.__class__.__name__,
+                "valor": transacao.valor,
+                "data": datetime.now().strftime
+                ("%d-%m-%Y %H:%M:%s")
+            }
+        )
+
 class Transação(ABC):
-    pass
+    @property
+    @abstractproperty
+    def valor(self):
+        pass
+
+    @abstractclassmethod
+    def registrar(self, conta):
+        pass
+
 class Saque(Transação):
-    pass
+    def __init__(self, valor):
+        self._valor = valor
+
+    @property
+    def valor(self):
+        return self._valor
+    
+    def registrar(self, conta):
+        sucesso_transacao = conta.sacar(self.valor)
+
+        if sucesso_transacao:
+            conta.historico.adicionar_transacao(self)
+
 class Deposito(Transação):
+    def __init__(self, valor):
+        self._valor = valor
+
+    @property
+    def valor(self):
+        return self._valor
+    
+    def registrar(self, conta):
+        sucesso_trasacao = conta.depositar(self.valor)
+
+        if sucesso_trasacao:
+            conta.historico.adicionar_transacao(self)
+
+def menu():
+    menu = """\n
+    ========== MENU ==========
+    [d]\tDepositar
+    [s]\tSacar
+    [e]\tExtrato
+    [nc]\tNova conta
+    [lc]\tListar contas
+    [nu]\tNovo usuário
+    [q]\tSair
+    ->"""
+    return input(textwrap.dedent(menu))
+
+def filtrar_cliente(cpf, clientes):
+    clientes_filtrados = [cliente for cliente in clientes if clientes.cpf == cpf]
+    return clientes_filtrados[0] if clientes_filtrados else None
+
+def recuperar_conta_cliente(cliente):
+    if not cliente.contas:
+        print("\n@@@ Cliente não possui conta! @@@")
+        return
+    # FIXME: não permite cliente escolher a conta 
+    return cliente.contas[0]
+
+def depositar(clientes):
+    cpf = input("Informe o numero do seu CPF: ")
+    cliente = filtrar_cliente(cpf, clientes)
+
+    if not clientes:
+        print("\n@@@ cliente não encontrado! @@@")
+        return
+    
+    valor = float(input("Informe o valor do depósito: "))   
+    transacao = Deposito(valor)
+
+    conta = recuperar_conta_cliente(cliente)
+    if not conta:
+        return
+    
+    cliente.realizar_transacao(conta, transacao)
+
+def sacar(clientes):
     pass
+
+def exibir_extrato(clientes):
+    pass
+
+def criar_cliente(clientes):
+    pass
+
+def criar_conta(numero_conta, clientes, contas):
+    pass
+
+def listar_contas(contas):
+    pass
+
+def main():
+    clientes = []
+    contas = []
+
+    while True:
+        opcao = menu()
+
+        if opcao == "d":
+            depositar(clientes)
+        elif opcao == "s":
+            sacar(clientes)
+        elif opcao == "e":
+            exibir_extrato(clientes)
+        elif opcao == "nu":
+            criar_cliente(clientes)
+        elif opcao == "nc":
+            numero_conta = len(contas) + 1  
+            criar_conta(numero_conta, clientes, contas)
+        elif opcao == "lc":
+            listar_contas(contas)
+        elif opcao == "q":
+            break
+        else:
+            print("\n @@@ Operação inválida, por favor selecione novamente a operação desejada. @@@")
+
+main()
